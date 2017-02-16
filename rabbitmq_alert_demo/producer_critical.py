@@ -54,18 +54,13 @@ class Producer(object):
         # 构建循环次数变量
         loop = xrange(cnt) if cnt else itertools.count(0, 1)
         for i in loop:
-            is_ok = self._channel.basic_publish(
-                                        body = "message_{i}".format(i = i),
-                                        exchange = self._exchange,
-                                        routing_key = self._routing_key,
-                                        properties = properties,
-                                        mandatory = False)
+            self.produce(properties) # 产生消息
             self._published += 1
         self.stop()
 
-    def produce(self):
+    def produce(self, properties=None):
         """生产消息到消息队列中"""
-        self.msg = create_msg() # 创建具体消息
+        self.msg = self.create_msg() # 创建具体消息
         is_ok = self._channel.basic_publish(
                                     body = self.msg,
                                     exchange = self._exchange,

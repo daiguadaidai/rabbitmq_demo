@@ -14,7 +14,7 @@ class Producer(object):
     """docstring for Producer"""
 
     _connection = None
-    _exchange_type = "topic"
+    _exchange_type = "fanout"
     _published = 0
     _confirmed = 0
     _errors = 0
@@ -44,6 +44,16 @@ class Producer(object):
         # 返回 Select连接
         return pika.BlockingConnection(parameters = conn_params)
 
+    def exchange_declare(self):
+        """定义一个交换器"""
+
+        # 公平分发。这样一次一个消费者处理一个任务，当准备分发任务时候，
+        # 发现该消费者已经有任务，将会分配给另外一个消费者去处理任务
+        self._channel.basic_qos(prefetch_count=1)
+        self._channel.exchange_declare(exchange = self._exchange,
+                                       exchange_type = self._exchange_type,
+                                       durable = True)  # 持久化
+
     def loop_produce(self, cnt=0):
         """循环生产新消息"""
         # 添加confirm机制
@@ -58,7 +68,7 @@ class Producer(object):
             self._published += 1
         self.stop()
 
-    def produce(self, properties):
+    def produce(self, properties=None):
         """生产消息到消息队列中"""
         self.msg = self.create_msg() # 创建具体消息
         is_ok = self._channel.basic_publish(
@@ -79,7 +89,7 @@ class Producer(object):
             msg: 返回一个字符串的消息
         Raise: None
         """
-        return 'multi message'
+        return 'upload message'
 
     def start(self):
         """启动生产者"""
@@ -88,6 +98,7 @@ class Producer(object):
                 or not self._connection.is_open):
             self._connection = self.connect()
             self._channel = self._connection.channel()
+            self.exchange_declare()
         self.loop_produce(cnt = 100) # 开始消费定义消费次数
 
     def restart(self):
@@ -111,9 +122,8 @@ def run():
         'password': 'oracle',
         'host': '192.168.1.233',
         'port': 5672,
-        'queue': 'critical',
-        'exchange': 'alerts',
-        'routing_key': 'critical.rate_limit',
+        'exchange': 'upload_exchange',
+        'routing_key': '',
         'vhost': '/',
     }
 
